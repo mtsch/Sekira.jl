@@ -1,6 +1,0 @@
-filename,hamiltonian,steps,targetwalkers,dt,dvec_type,style,time
-"0000000100.arrow","HubbardMom1D(BoseFS{7,7}((0, 0, 0, 7, 0, 0, 0)); u=6.0, t=1.0)",60000,100,0.001,"DVec","IsStochasticInteger{Int64}()",5.434553732
-"0000000200.arrow","HubbardMom1D(BoseFS{7,7}((0, 0, 0, 7, 0, 0, 0)); u=6.0, t=1.0)",60000,200,0.001,"DVec","IsStochasticInteger{Int64}()",6.135583208
-"0000000300.arrow","HubbardMom1D(BoseFS{7,7}((0, 0, 0, 7, 0, 0, 0)); u=6.0, t=1.0)",60000,300,0.001,"DVec","IsStochasticInteger{Int64}()",7.261633388
-"0000000400.arrow","HubbardMom1D(BoseFS{7,7}((0, 0, 0, 7, 0, 0, 0)); u=6.0, t=1.0)",60000,400,0.001,"DVec","IsStochasticInteger{Int64}()",7.845167632
-"0000000500.arrow","HubbardMom1D(BoseFS{7,7}((0, 0, 0, 7, 0, 0, 0)); u=6.0, t=1.0)",60000,500,0.001,"DVec","IsStochasticInteger{Int64}()",8.531471009

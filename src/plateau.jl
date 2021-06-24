@@ -51,11 +51,6 @@ function unpack_commandline_args(args)
         arg_type=Int
         default=60_000
 
-        "--warmup"
-        help="Do this many steps on the first walker number before starting measuring."
-        arg_type=Int
-        default=10_000
-
         "--dt"
         help="Timestep size."
         arg_type=Float64
@@ -65,6 +60,16 @@ function unpack_commandline_args(args)
         help="Use mpi?"
         arg_type=Bool
         default=true
+
+        "--continuation"
+        help="Do continuation runs between walker numbers?"
+        arg_type=Bool
+        default=true
+
+        "--warmup"
+        help="Warm up on the first walker number for this many steps. Only applicable if \"--continuation=true\""
+        arg_type=Int
+        default=10_000
     end
     res = Dict{Symbol,Any}()
     for (k, v) in parse_args(args, s)
@@ -88,9 +93,10 @@ Uses continuations to reduce equilibration times.
 * `dir="."`: Output directory.
 * `initiator=false`: Use initiators?
 * `steps=60_000`: Record this many steps.
-* `warmup=10_000`: Do this many steps on the first walker number before measuring.
 * `dt=1e-3`: Timestep size.
 * `mpi=true`: Use MPI?
+* `continuation`: Do continuation runs between walker numbers?
+* `warmup=10_000`: Do this many steps on the first walker number before measuring.
 
 Arguments can also be passed in an array of strings. Example usage:
 
@@ -113,25 +119,35 @@ function plateau(
     dir=".",
     initiator=false,
     steps=60_000,
-    warmup=10_000,
     dt=1e-3,
     mpi=true,
+    continuation=true,
+    warmup=10_000,
 )
     dvec_type = initiator ? InitiatorDVec : DVec
     style = parse_style(style)
     num_walkers = parse_n_walkers(num_walkers)
-    return plateau(ham, num_walkers, style, id, dir, dvec_type, steps, warmup, dt, mpi)
+    return plateau(
+        ham, num_walkers, style, id, dir, dvec_type, steps, dt, continuation, warmup, mpi
+    )
 end
 
-function plateau(ham, num_walkers, style, id, dir, dvec_type, steps, warmup, dτ, mpi)
+function plateau(
+    ham, num_walkers, style, id, dir, dvec_type, steps, dτ, continuation, warmup, mpi
+)
     @mpi_root begin
         dir = joinpath(dir, id)
         if isdir(dir)
-            @warn "Directory `$dir` exists!"
+            @error "Directory `$dir` exists! Aborting."
+            return
         end
         mkpath(dir)
         metafile = joinpath(dir, "metadata.csv")
-        write(metafile, "filename,hamiltonian,steps,targetwalkers,dt,dvec_type,style,time\n")
+        write(
+            metafile,
+            "filename,hamiltonian,steps,targetwalkers," *
+            "dt,continuation,dvec_type,style,time\n",
+        )
     end
 
     if mpi
@@ -150,15 +166,21 @@ function plateau(ham, num_walkers, style, id, dir, dvec_type, steps, warmup, dτ
         SignCoherence(copy(localpart(dv)); name=:single_coherence),
     )
 
-    @mpi_root @info "Warming up."
-    params = RunTillLastStep(; laststep=warmup, dτ)
-    lomc!(ham, dv; s_strat, post_step, params)
+    if continuation
+        @mpi_root @info "Warming up."
+        params = RunTillLastStep(; laststep=warmup, dτ)
+        lomc!(ham, dv; s_strat, post_step, params)
+    end
 
     for t in num_walkers
         @mpi_root @info "Computing targetwalkers=$t"
         s_strat = DoubleLogUpdate(targetwalkers=t)
-        params.step = 0
-        params.laststep = steps
+        if continuation
+            params.step = 0
+            params.laststep = steps
+        else
+            params = RunTillLastStep(; laststep=steps, dτ)
+        end
         time = @elapsed df = lomc!(ham, dv; s_strat, post_step, params).df
 
         @mpi_root begin
@@ -168,7 +190,8 @@ function plateau(ham, num_walkers, style, id, dir, dvec_type, steps, warmup, dτ
                 write(
                     f,
                     "\"$(basename(filename))\",\"$(ham)\""*
-                    ",$(steps),$(t),$(dτ),\"$(dvec_type)\",\"$(style)\",$(time)\n"
+                    ",$(steps),$(t),$(dτ),$(continuation),"*
+                    "\"$(dvec_type)\",\"$(style)\",$(time)\n",
                 )
             end
             RimuIO.save_df(filename, df)
