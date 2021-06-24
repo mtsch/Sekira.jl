@@ -4,7 +4,7 @@ using Reexport
 @reexport using DataFrames
 @reexport using Rimu
 @reexport using Rimu.StatsTools
-@reexport using Rimu
+@reexport using Rimu.RMPI
 
 @reexport using Statistics, LinearAlgebra
 
@@ -42,11 +42,11 @@ function reference(H; force_recompute=false)
     Hs = Rimu.Hamiltonians
     id = get_id(H)
     if !force_recompute && isfile(cache("$id.bson"))
-        @info "Reference found."
+        @mpi_root @info "Reference found."
         ref = RimuIO.load_dvec(cache("$id.bson"))
         E0 = read(cache("$id.energy"), Float64)
     else
-        @info "Computing reference."
+        @mpu_root @info "Computing reference."
         dv = DVec(starting_address(H) => 1.0)
         ishermitian = Hs.LOStructure(H) == Hs.Hermitian()
         issymmetric = ishermitian && eltype(H) <: Real
