@@ -148,7 +148,9 @@ function plateau(
     if continuation
         @mpi_root @info "Warming up."
         params = RunTillLastStep(; laststep=warmup, dτ)
-        lomc!(ham, dv; s_strat, post_step, params, maxlength=2 * last(steps))
+        # Set high `maxlength` here as low walker numbers are more likely to overflow. We
+        # know we have enough memory allocated for 2 * last(num_walkers)
+        lomc!(ham, dv; s_strat, post_step, params, maxlength=2 * last(num_walkers))
     end
     prev_file = "__warmup__"
 
