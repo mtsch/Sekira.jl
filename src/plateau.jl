@@ -57,11 +57,6 @@ function unpack_commandline_args(args)
         arg_type=Float64
         default=1e-3
 
-        "--mpi"
-        help="Use mpi?"
-        arg_type=Bool
-        default=true
-
         "--continuation"
         help="Do continuation runs between walker numbers?"
         arg_type=Bool
@@ -95,7 +90,6 @@ Uses continuations to reduce equilibration times.
 * `initiator=false`: Use initiators?
 * `steps=60_000`: Record this many steps.
 * `dt=1e-3`: Timestep size.
-* `mpi=true`: Use MPI?
 * `continuation`: Do continuation runs between walker numbers?
 * `warmup=10_000`: Do this many steps on the first walker number before measuring.
 
@@ -121,7 +115,6 @@ function plateau(
     initiator=false,
     steps=60_000,
     dt=1e-3,
-    mpi=true,
     continuation=true,
     warmup=10_000,
 )
@@ -129,22 +122,18 @@ function plateau(
     style = parse_style(style)
     num_walkers = parse_n_walkers(num_walkers)
     return plateau(
-        ham, num_walkers, style, id, dir, dvec_type, steps, dt, continuation, warmup, mpi
+        ham, num_walkers, style, id, dir, dvec_type, steps, dt, continuation, warmup
     )
 end
 
 function plateau(
-    ham, num_walkers, style, id, dir, dvec_type, steps, dτ, continuation, warmup, mpi
+    ham, num_walkers, style, id, dir, dvec_type, steps, dτ, continuation, warmup
 )
     @mpi_root begin
         root = initialize_run(dir, id)
     end
 
-    if mpi
-        dv = MPIData(dvec_type(starting_address(ham) => 1; style))
-    else
-        dv = dvec_type(starting_address(ham) => 1; style)
-    end
+    dv = MPIData(dvec_type(starting_address(ham) => 1; style))
 
     _, ref = reference(ham)
 
@@ -183,7 +172,7 @@ function plateau(
                 ; ham, n_target, steps, time, schema, style, dvec_type, params, continued,
             )
             @info "Done in $time seconds."
-            show_metadata(stderr, metadata)
+            show_metadata(stdout, metadata)
             save_run(root, "$n_target", df, metadata)
             prev_file = "$n_target"
         end
