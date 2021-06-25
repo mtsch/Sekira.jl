@@ -159,7 +159,7 @@ function plateau(
     if continuation
         @mpi_root @info "Warming up."
         params = RunTillLastStep(; laststep=warmup, dτ)
-        lomc!(ham, dv; s_strat, post_step, params)
+        lomc!(ham, dv; s_strat, post_step, params, maxlength=2 * last(steps))
     end
     prev_file = "__warmup__"
 
