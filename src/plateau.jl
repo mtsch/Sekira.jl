@@ -1,5 +1,6 @@
 using ArgParse
 using Rimu.RMPI
+using JLSO
 
 function parse_n_walkers(n)
     nums = map(x -> parse(Int, x), split(n, ':'))
@@ -136,18 +137,7 @@ function plateau(
     ham, num_walkers, style, id, dir, dvec_type, steps, dτ, continuation, warmup, mpi
 )
     @mpi_root begin
-        dir = joinpath(dir, id)
-        if isdir(dir)
-            @error "Directory `$dir` exists! Aborting."
-            return
-        end
-        mkpath(dir)
-        metafile = joinpath(dir, "metadata.csv")
-        write(
-            metafile,
-            "filename,hamiltonian,steps,targetwalkers," *
-            "dt,continuation,dvec_type,style,time\n",
-        )
+        root = initialize_run(dir, id)
     end
 
     if mpi
@@ -171,10 +161,11 @@ function plateau(
         params = RunTillLastStep(; laststep=warmup, dτ)
         lomc!(ham, dv; s_strat, post_step, params)
     end
+    prev_file = "__warmup__"
 
-    for t in num_walkers
-        @mpi_root @info "Computing targetwalkers=$t"
-        s_strat = DoubleLogUpdate(targetwalkers=t)
+    for n_target in num_walkers
+        @mpi_root @info "Computing targetwalkers=$n_target"
+        s_strat = DoubleLogUpdate(targetwalkers=n_target)
         if continuation
             params.step = 0
             params.laststep = steps
@@ -184,17 +175,23 @@ function plateau(
         time = @elapsed df = lomc!(ham, dv; s_strat, post_step, params).df
 
         @mpi_root begin
+            schema = Tables.schema(df)
+            style = StochasticStyle(localpart(dv))
+            dvec_type = typeof(localpart(dv))
+            continued = continuation ? prev_file : nothing
+            metadata = (
+                ; ham, n_target, steps, time, schema, style, dvec_type, params, continued,
+            )
             @info "Done in $time seconds."
-            filename = joinpath(dir, string(lpad(t, 10, '0'), ".arrow"))
-            open(metafile, "a") do f
-                write(
-                    f,
-                    "\"$(basename(filename))\",\"$(ham)\""*
-                    ",$(steps),$(t),$(dτ),$(continuation),"*
-                    "\"$(dvec_type)\",\"$(style)\",$(time)\n",
-                )
-            end
-            RimuIO.save_df(filename, df)
+            show_metadata(stderr, metadata)
+            save_run(root, "$n_target", df, metadata)
+            prev_file = "$n_target"
         end
+    end
+end
+
+function show_metadata(io::IO, metadata)
+    for (k, v) in pairs(metadata)
+        println(io, rpad(k, 10), " : ", v)
     end
 end

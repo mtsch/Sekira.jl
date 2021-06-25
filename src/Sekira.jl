@@ -5,6 +5,7 @@ using Reexport
 @reexport using Rimu
 @reexport using Rimu.StatsTools
 @reexport using Rimu.RMPI
+@reexport using Rimu: RimuIO
 
 @reexport using Statistics, LinearAlgebra
 
@@ -16,6 +17,7 @@ using Serialization
 
 cache(args...) = joinpath(@__DIR__, "..", "cache", args...)
 
+include("files.jl")
 include("plateau.jl")
 
 """
