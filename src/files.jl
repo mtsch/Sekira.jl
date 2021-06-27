@@ -1,10 +1,7 @@
-using NamedTupleTools
-using FileTrees
-using Pipe
-
 """
+    initialize_run(dir, id)
 
-Create directory structure.
+Create directory structure for a run. The directory created will live in `dir/id`.
 """
 function initialize_run(dir, id)
     root = joinpath(dir, id)

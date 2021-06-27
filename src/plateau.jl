@@ -1,6 +1,3 @@
-using ArgParse
-using Rimu.RMPI
-using JLSO
 
 function parse_n_walkers(n)
     nums = map(x -> parse(Int, x), split(n, ':'))
