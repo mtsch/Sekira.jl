@@ -1,4 +1,3 @@
-
 function parse_n_walkers(n)
     nums = map(x -> parse(Int, x), split(n, ':'))
     if length(nums) == 1
@@ -130,7 +129,7 @@ function plateau(
         root = initialize_run(dir, id)
     end
 
-    dv = MPIData(dvec_type(starting_address(ham) => 1; style))
+    dv = MPIData(dvec_type(starting_address(ham) => 10; style))
 
     _, ref = reference(ham)
 
