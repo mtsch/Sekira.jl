@@ -8,12 +8,18 @@ function parse_n_walkers(n)
 end
 
 function parse_style(s)
-    if startswith(s, "int")
-        return IsStochasticInteger()
+    return if startswith(s, "int")
+        IsStochasticInteger()
     elseif startswith(s, "semi")
-        return IsDynamicSemistochastic()
-    elseif startswith(s, "early")
-        return IsDynamicSemistochastic(late_projection=false)
+        IsDynamicSemistochastic()
+    elseif startswith(s, "explosive")
+        IsExplosive()
+    elseif startswith(s, "double")
+        IsDynamicSemistochastic(compression=Rimu.StochasticStyles.DoubleOrNothing())
+    elseif startswith(s, "without_r")
+        IsDynamicSemistochastic(spawning=Rimu.StochasticStyles.WithoutReplacement())
+    elseif startswith(s, "bernoulli")
+        IsDynamicSemistochastic(spawning=Rimu.StochasticStyles.Bernoulli())
     else
         error("Unknown style '", s, "'")
     end
@@ -126,6 +132,7 @@ function plateau(
     ham, num_walkers, style, id, dir, dvec_type, steps, dτ, continuation, warmup
 )
     @mpi_root begin
+        @info "Run started"
         root = initialize_run(dir, id)
     end
 
@@ -133,33 +140,38 @@ function plateau(
 
     _, ref = reference(ham)
 
-    s_strat = DoubleLogUpdate(targetwalkers=num_walkers[1])
     post_step = (
         ProjectedEnergy(ham, dv),
         WalkerLoneliness(),
         SignCoherence(ref),
         SignCoherence(copy(localpart(dv)); name=:single_coherence),
+        Rimu.Timer(),
     )
+
+    # Set up.
+    s_strat = DoubleLogUpdate(targetwalkers=num_walkers[1])
+    maxlength = 2 * maximum(num_walkers)
 
     if continuation
         @mpi_root @info "Warming up."
         params = RunTillLastStep(; laststep=warmup, dτ)
-        # Set high `maxlength` here as low walker numbers are more likely to overflow. We
-        # know we have enough memory allocated for 2 * last(num_walkers)
-        lomc!(ham, dv; s_strat, post_step, params, maxlength=2 * last(num_walkers))
+        lomc!(ham, dv; s_strat, post_step, params, maxlength)
     end
     prev_file = "__warmup__"
 
     for n_target in num_walkers
         @mpi_root @info "Computing targetwalkers=$n_target"
         s_strat = DoubleLogUpdate(targetwalkers=n_target)
-        if continuation
+        if continuation && params.step == params.laststep
+            # Only do continuation if previous run did not overflow maxlength.
             params.step = 0
             params.laststep = steps
         else
+            empty!(localpart(dv))
+            localpart(dv)[starting_address(ham)] = 10
             params = RunTillLastStep(; laststep=steps, dτ)
         end
-        time = @elapsed df = lomc!(ham, dv; s_strat, post_step, params).df
+        time = @elapsed df = lomc!(ham, dv; s_strat, post_step, params, maxlength).df
 
         @mpi_root begin
             schema = Tables.schema(df)
