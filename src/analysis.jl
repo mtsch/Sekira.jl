@@ -112,3 +112,21 @@ function summarize(f, root::FileTree; skip=0)
 end
 summarize(f, root::String; kwargs...) = summarize(f, FileTree(root); kwargs...)
 summarize(root; kwargs...) = f -> summarize(f, FileTree(root); kwargs...)
+
+export memory_use
+function memory_use(df)
+    if hasproperty(df, :len_before)
+        return maximum(max.(df.len, df.len_before))
+    else
+        return maximum(df.len)
+    end
+end
+
+export safe_proj_e
+function safe_proj_e(df)
+    try
+        return mean_and_se(ratio_of_means(df.hproj, df.vproj))
+    catch
+        return (NaN, NaN, NaN, NaN, NaN)
+    end
+end
