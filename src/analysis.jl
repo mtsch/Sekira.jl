@@ -125,7 +125,7 @@ end
 export safe_proj_e
 function safe_proj_e(df)
     try
-        return mean_and_se(ratio_of_means(df.hproj, df.vproj))
+        return med_and_errs(ratio_of_means(df.hproj, df.vproj))
     catch
         return (NaN, NaN, NaN, NaN, NaN)
     end
