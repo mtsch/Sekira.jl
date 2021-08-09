@@ -42,3 +42,14 @@ function reference(H; force_recompute=false)
     end
     return E0, ref
 end
+
+function deterministic_reference(H)
+    ref = MPIData(DVec(starting_address(H) => 1.0, style=IsDeterministic()))
+    r_strat = ReportToFile(
+        chunk_size=100, save_if=is_mpi_root(), io=stderr, filename="ref.arrow"
+    )
+    lomc!(H, ref; laststep=10_000, r_strat)
+
+    RimuIO.save_dvec("ref.bson", ref)
+
+end

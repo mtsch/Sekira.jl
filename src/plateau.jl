@@ -35,6 +35,7 @@ function unpack_commandline_args(args)
         "--style"
         help="Stochastic style to use."
         required=true
+        default="semi"
 
         "--id"
         help="The id of the computation."
@@ -138,14 +139,15 @@ function plateau(
 
     dv = MPIData(dvec_type(starting_address(ham) => 10; style))
 
-    _, ref = reference(ham)
+    if isnothing(ref)
+        _, ref = reference(ham)
+    end
 
     post_step = (
         ProjectedEnergy(ham, dv),
         WalkerLoneliness(),
         SignCoherence(ref),
         SignCoherence(copy(localpart(dv)); name=:single_coherence),
-        Rimu.Timer(),
     )
 
     # Set up.
