@@ -9,4 +9,4 @@ using Sekira
 add = BoseFS(ntuple(i -> ifelse(i==10, 10, 0), 20))
 H = HubbardMom1D(add; u=0.5)
 
-Sekira.plateau(H, ARGS)
+Sekira.plateau(H, ARGS; post_step=ProjectedEnergy(H, DVec(add => 1.0)))

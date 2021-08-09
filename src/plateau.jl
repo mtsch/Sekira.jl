@@ -32,14 +32,13 @@ function unpack_commandline_args(args)
         help="Number of walkers to use."
         required=true
 
-        "--style"
-        help="Stochastic style to use."
-        required=true
-        default="semi"
-
         "--id"
         help="The id of the computation."
         required=true
+
+        "--style"
+        help="Stochastic style to use."
+        default="semi"
 
         "--dir"
         help="Output directory."
@@ -87,8 +86,8 @@ Uses continuations to reduce equilibration times.
 # Arguments:
 
 * `num_walkers` (required): range of walkers to run the computation with.
-* `style` (required): the stochastic style ("int", "semi", or "early").
 * `id` (required): the id. A directory with that name will be created.
+* `style`: the stochastic style ("int", "semi", or "early").
 * `dir="."`: Output directory.
 * `initiator=false`: Use initiators?
 * `steps=60_000`: Record this many steps.
@@ -120,17 +119,19 @@ function plateau(
     dt=1e-3,
     continuation=true,
     warmup=10_000,
+    kwargs...,
 )
     dvec_type = initiator ? InitiatorDVec : DVec
     style = parse_style(style)
     num_walkers = parse_n_walkers(num_walkers)
     return plateau(
-        ham, num_walkers, style, id, dir, dvec_type, steps, dt, continuation, warmup
+        ham, num_walkers, style, id, dir, dvec_type, steps, dt, continuation, warmup;
+        kwargs...
     )
 end
 
 function plateau(
-    ham, num_walkers, style, id, dir, dvec_type, steps, dτ, continuation, warmup
+    ham, num_walkers, style, id, dir, dvec_type, steps, dτ, continuation, warmup; kwargs...
 )
     @mpi_root begin
         @info "Run started"
@@ -139,17 +140,6 @@ function plateau(
 
     dv = MPIData(dvec_type(starting_address(ham) => 10; style))
 
-    if isnothing(ref)
-        _, ref = reference(ham)
-    end
-
-    post_step = (
-        ProjectedEnergy(ham, dv),
-        WalkerLoneliness(),
-        SignCoherence(ref),
-        SignCoherence(copy(localpart(dv)); name=:single_coherence),
-    )
-
     # Set up.
     s_strat = DoubleLogUpdate(targetwalkers=num_walkers[1])
     maxlength = 2 * maximum(num_walkers)
@@ -157,7 +147,7 @@ function plateau(
     if continuation
         @mpi_root @info "Warming up."
         params = RunTillLastStep(; laststep=warmup, dτ)
-        lomc!(ham, dv; s_strat, post_step, params, maxlength)
+        lomc!(ham, dv; s_strat, params, maxlength, kwargs...)
     end
     prev_file = "__warmup__"
 
@@ -173,7 +163,7 @@ function plateau(
             localpart(dv)[starting_address(ham)] = 10
             params = RunTillLastStep(; laststep=steps, dτ)
         end
-        time = @elapsed df = lomc!(ham, dv; s_strat, post_step, params, maxlength).df
+        time = @elapsed df = lomc!(ham, dv; s_strat, params, maxlength, kwargs...).df
 
         @mpi_root begin
             schema = Tables.schema(df)
