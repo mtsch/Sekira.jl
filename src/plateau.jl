@@ -110,7 +110,7 @@ Sekira.plateau(H, ARGS)
 
 This will create a directory `test` where output files are saved.
 """
-plateau(ham, args) = plateau(ham; unpack_commandline_args(args)...)
+plateau(ham, args; kwargs...) = plateau(ham; unpack_commandline_args(args)..., kwargs...)
 function plateau(
     ham; num_walkers, style, id,
     dir=".",
