@@ -67,10 +67,15 @@ macro summary(expr)
     end
     # Validate body
     for ex in body.args
-        ex isa LineNumberNode && continue
-        ex isa Expr && ex.head == :(=) && continue
-        error("only assignment expressions allowed in function body")
+        if ex isa LineNumberNode
+            continue
+        elseif ex isa Expr && ex.head == :(=)
+            ex.args[2] = esc(ex.args[2])
+        else
+            error("only assignment expressions allowed in function body")
+        end
     end
+    header.args .= esc.(header.args)
 
     # Collect all names that appear on the left.
     left = Symbol[]
